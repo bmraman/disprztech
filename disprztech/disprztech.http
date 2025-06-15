@@ -1,0 +1,6 @@
+@disprztech_HostAddress = http://localhost:5073
+
+GET {{disprztech_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
