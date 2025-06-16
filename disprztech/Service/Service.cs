@@ -133,7 +133,17 @@ namespace disprztech.Service
             try
             {
                 using var conn = _dbConnection.CreateConnection();
-                var properties = typeof(T).GetProperties().Where(p => p.Name.ToLower() != "id");
+                var properties = typeof(T).GetProperties()
+                    .Where(p => p.Name.ToLower() != "id" && !p.Name.Equals("Created", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                // Automatically set Updated if the property exists
+                var updatedDateProp = properties.FirstOrDefault(p => p.Name.Equals("Updated", StringComparison.OrdinalIgnoreCase));
+                if (updatedDateProp != null && updatedDateProp.PropertyType == typeof(DateTime))
+                {
+                    updatedDateProp.SetValue(entity, DateTime.UtcNow);
+                }
+
                 var setClause = string.Join(", ", properties.Select(p => $"{p.Name.ToLower()} = @{p.Name}"));
                 var sql = $"UPDATE {_tableName} SET {setClause} WHERE id = @id";
 
