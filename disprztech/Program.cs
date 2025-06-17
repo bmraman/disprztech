@@ -1,12 +1,9 @@
-using Dapper;
 using disprztech.Data;
 using disprztech.Data.Interfaces;
 using disprztech.Service;
 using disprztech.Service.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Identity.Web;
-using Npgsql;
-using System.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 

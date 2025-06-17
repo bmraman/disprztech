@@ -1,6 +1,6 @@
 ﻿using disprztech.Models;
 using disprztech.Service.Interfaces;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace disprztech.Controllers
@@ -16,6 +16,12 @@ namespace disprztech.Controllers
             _service = service;
         }
 
+        private async Task<string> SetPasswordHashAsync(User user) {
+            var hasher = new PasswordHasher<object>();
+            var hashPass = hasher.HashPassword(null, user.PasswordHash);
+            return hashPass;
+        }
+
         [HttpGet]
         public async Task<IActionResult> Get()
         {
@@ -23,10 +29,17 @@ namespace disprztech.Controllers
             catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("Id/{id}")]
         public async Task<IActionResult> Get(int id)
         {
             try { return Ok(await _service.GetByIdAsync(id)); }
+            catch (Exception ex) { return StatusCode(500, ex.Message); }
+        }
+
+        [HttpGet("Email/{email}")]
+        public async Task<IActionResult> Get(string email)
+        {
+            try { return Ok(await _service.GetByEmailAsync(email));}
             catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
 
@@ -35,6 +48,8 @@ namespace disprztech.Controllers
         {
             try
             {
+                user.PasswordHash = await SetPasswordHashAsync(user);
+                user.Created = DateTime.Now;
                 await _service.CreateAsync(user);
                 return Ok();
             }
@@ -49,6 +64,24 @@ namespace disprztech.Controllers
         {
             try
             {
+                var getExisting = await _service.GetAllAsync();
+
+                foreach (var user in users)
+                {
+                    user.PasswordHash = await SetPasswordHashAsync(user);
+
+                    // Check if the result of GetByEmailAsync is null instead of treating it as a boolean
+                    var existingUser = await _service.GetByEmailAsync(user.Email);
+                    if (existingUser != null)
+                    {
+                        user.Created = existingUser.Created;
+                        user.Updated = DateTime.Now;
+                    }
+                    else
+                    {
+                        user.Created = DateTime.Now;
+                    }
+                }
                 await _service.BulkInsertAsync(users, "Email");
                 return Ok();
             }
@@ -58,12 +91,14 @@ namespace disprztech.Controllers
             }
         }
 
-        [HttpPut("Update/{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] User user)
+        [HttpPut("Update")]
+        public async Task<IActionResult> Update([FromBody] User user)
         {
             try
             {
-                await _service.UpdateAsync(id, user);
+                user.Updated = DateTime.Now;
+                user.PasswordHash = await SetPasswordHashAsync(user);
+                await _service.UpdateAsync(user.Email, user);
                 return Ok();
             }
             catch (Exception ex)
@@ -72,7 +107,7 @@ namespace disprztech.Controllers
             }
         }
 
-        [HttpDelete("Delete/{id}")]
+        [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             try

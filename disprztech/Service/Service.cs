@@ -4,7 +4,6 @@ using disprztech.Service.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
-using System.Data.Common;
 using System.Reflection;
 using System.Text;
 
@@ -46,16 +45,29 @@ namespace disprztech.Service
             }
          }
 
-        public async Task<T> GetByIdAsync(int id)
+        public async Task<T?> GetByIdAsync(int id)
         {
             try
             {
                 using var conn = _dbConnection.CreateConnection();
-                return await conn.QueryFirstOrDefaultAsync<T>($"SELECT * FROM {_tableName} WHERE id = @id", new { id });
+                return await conn.QueryFirstOrDefaultAsync<T?>($"SELECT * FROM {_tableName} WHERE id = @id", new { id });
             }
             catch (Exception ex)
             {
                 throw new Exception($"Error retrieving id {id} from {_tableName}: {ex.Message}", ex);
+            }
+        }
+
+        public async Task<T?> GetByEmailAsync(string email)
+        {
+            try
+            {
+                using var conn = _dbConnection.CreateConnection();
+                return await conn.QueryFirstOrDefaultAsync<T>($"SELECT * FROM {_tableName} WHERE email = @email", new { email });
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error retrieving email {email} from {_tableName}: {ex.Message}", ex);
             }
         }
 
@@ -128,33 +140,26 @@ namespace disprztech.Service
             }
         }
 
-        public async Task UpdateAsync(int id, T entity)
+        public async Task UpdateAsync(string email, T entity)
         {
             try
             {
                 using var conn = _dbConnection.CreateConnection();
                 var properties = typeof(T).GetProperties()
-                    .Where(p => p.Name.ToLower() != "id" && !p.Name.Equals("Created", StringComparison.OrdinalIgnoreCase))
+                    .Where(p => p.Name.ToLower() != "email" && !p.Name.Equals("Created", StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
-                // Automatically set Updated if the property exists
-                var updatedDateProp = properties.FirstOrDefault(p => p.Name.Equals("Updated", StringComparison.OrdinalIgnoreCase));
-                if (updatedDateProp != null && updatedDateProp.PropertyType == typeof(DateTime))
-                {
-                    updatedDateProp.SetValue(entity, DateTime.UtcNow);
-                }
-
                 var setClause = string.Join(", ", properties.Select(p => $"{p.Name.ToLower()} = @{p.Name}"));
-                var sql = $"UPDATE {_tableName} SET {setClause} WHERE id = @id";
+                var sql = $"UPDATE {_tableName} SET {setClause} WHERE email = @email";
 
                 var parameters = new DynamicParameters(entity);
-                parameters.Add("id", id);
+                parameters.Add("email", email);
 
                 await conn.ExecuteAsync(sql, parameters);
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error updating {_tableName} with id {id}: {ex.Message}", ex);
+                throw new Exception($"Error updating {_tableName} with email {email}: {ex.Message}", ex);
             }
         }
 
@@ -163,8 +168,9 @@ namespace disprztech.Service
             try
             {
                 using var conn = _dbConnection.CreateConnection();
-                var sql = $"DELETE FROM {_tableName} WHERE id = @id";
-                await conn.ExecuteAsync(sql, new { id });
+                var updated = DateTime.Now;
+                var sql = $"UPDATE {_tableName} SET isactive = @isactive, updated = @updated WHERE id = @id";
+                await conn.ExecuteAsync(sql, new { isactive = true, updated = DateTime.Now, id });
             }
             catch (Exception ex)
             {
